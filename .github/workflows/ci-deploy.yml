@@ -1,0 +1,59 @@
+name: CI Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    env:
+      BUCKET_NAME: your-s3-bucket-name  # Replace with your S3 bucket name
+      AWS_REGION: us-east-1             # Replace with your AWS region
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Validate site structure
+        run: |
+          if [ -f "site/index.html" ]; then
+            echo "✓ site/index.html found"
+            echo "First 10 lines:"
+            head -10 site/index.html
+          else
+            echo "✗ site/index.html not found"
+            exit 1
+          fi
+      
+      - name: Lint YAML files
+        run: |
+          # Simple YAML syntax check using Python (available by default)
+          python3 -c "
+          import yaml, glob
+          for file in glob.glob('**/*.yml', recursive=True) + glob.glob('**/*.yaml', recursive=True):
+              try:
+                  with open(file) as f:
+                      yaml.safe_load(f)
+                  print(f'✓ {file}')
+              except Exception as e:
+                  print(f'✗ {file}: {e}')
+                  exit(1)
+          "
+      
+      # UNCOMMENT BELOW STEPS AFTER ADDING AWS SECRETS TO REPOSITORY SETTINGS
+      # Go to: Repository Settings > Secrets and variables > Actions
+      # Add: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+      
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ env.AWS_REGION }}
+      
+      # - name: Deploy to S3
+      #   run: |
+      #     aws s3 sync site/ s3://${{ env.BUCKET_NAME }} --delete
+      #     echo "✓ Site deployed to S3 bucket: ${{ env.BUCKET_NAME }}"
